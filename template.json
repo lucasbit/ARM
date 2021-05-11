@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "functions": [],
+  "variables": {
+    "functionName": "QAReciverForTests",
+    "storageAccName": "qafuncreciver2323data",
+    "appInsightsName": "QAReciverAppIns",
+    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccName'))]"
+
+  },
+  "resources": [
+    // Storage
+    {
+      "name": "[variables('storageAccName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-06-01",
+      "tags": {
+        "displayName": "storageAccountForQAAutoTests"
+      },
+      "location": "[resourceGroup().location]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      }
+    },
+
+    // Aplication Insights
+    {
+      "apiVersion": "2015-05-01",
+      "name": "[variables('appInsightsName')]",
+      "type": "Microsoft.Insights/components",
+      "kind": "web",
+      "location": "[resourceGroup().location]",
+      "tags": {
+          "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', variables('functionName'))]": "Resource"
+      },
+      "properties": {
+          "Application_Type": "web",
+          "ApplicationId": "[variables('appInsightsName')]"
+      }
+    },
+    
+    // Function App
+    {
+      "name": "[variables('functionName')]",
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2018-11-01",
+      "location": "[resourceGroup().location]",
+      "kind": "functionapp",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccName'))]"
+      ],
+      "properties": {
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccName'), ';AccountKey=', listKeys(variables('storageAccountId'),'2015-05-01-preview').key1)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccName'), ';AccountKey=', listKeys(variables('storageAccountId'),'2015-05-01-preview').key1)]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~3"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').InstrumentationKey]"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "node"
+            },
+            {
+              "name":"WEBSITE_NODE_DEFAULT_VERSION",
+              "value":"14.15.0"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}
